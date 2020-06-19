@@ -3,6 +3,11 @@ package com.example.voto.config;
 public enum ErrorCode {
     DUPLICATE_KEY(1001, "duplicate key");
 
-    ErrorCode(int i, String s) {
+    final int code;
+    final String description;
+
+    ErrorCode(int code, String description) {
+        this.code = code;
+        this.description = description;
     }
 }

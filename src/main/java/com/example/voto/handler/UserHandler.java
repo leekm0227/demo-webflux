@@ -1,50 +1,66 @@
 package com.example.voto.handler;
 
+import com.example.voto.domain.Result;
 import com.example.voto.domain.User;
 import com.example.voto.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.math.BigInteger;
+import java.util.Objects;
 
 @Component
-public class UserHandler extends AbstractHandler<User> {
+public class UserHandler extends AbstractHandler {
 
     @Autowired
     UserRepository userRepository;
 
-    UserHandler() {
-        super(User.class);
-    }
-
     public Mono<ServerResponse> userList(ServerRequest request) {
-        Flux<User> user = userRepository.findAllByOrderByCreateAtDesc(PageRequest.of(
-                request.queryParam("page").map(Integer::valueOf).orElse(1),
-                request.queryParam("size").map(Integer::valueOf).orElse(10)));
-        return response.apply(HttpStatus.OK, user);
+        return response.apply(userRepository.findAllByOrderByCreateAtDesc(paging.apply(request))
+                .collectList()
+                .flatMap(users -> Mono.just(new Result() {{
+                    addData("user", users);
+                }}))
+        );
     }
 
     public Mono<ServerResponse> getUserById(ServerRequest request) {
-        return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(userRepository.findById(new BigInteger(request.pathVariable("id"))), User.class);
+        return response.apply(userRepository.findById(request.pathVariable("id"))
+                .flatMap(user -> Mono.just(new Result() {{
+                    addData("user", user);
+                }}))
+        );
     }
 
-    public Mono<ServerResponse> createUser(ServerRequest request) {
-        return request.bodyToMono(User.class).flatMap(user -> {
-                    return userRepository.save(user)
-                            .onErrorResume(Error::duplicateKey);
-
-                    return response.apply(HttpStatus.OK, )
-                            .body(response, User.class);
-                }
+    public Mono<ServerResponse> info(ServerRequest request) {
+        String userId = request.headers().firstHeader("auth");
+        assert userId != null;
+        return response.apply(userRepository.findById(userId)
+                .flatMap(user -> Mono.just(new Result() {{
+                    addData("user", user);
+                }}))
         );
+    }
+
+    public Mono<ServerResponse> join(ServerRequest request) {
+        return request.bodyToMono(User.class)
+                .flatMap(user -> response.apply(userRepository.save(user)
+                                .flatMap(savedUser -> Mono.just(new Result() {{
+                                    addData("user", savedUser);
+                                }}))
+                        )
+                );
+    }
+
+    public Mono<ServerResponse> login(ServerRequest request) {
+        return request.bodyToMono(User.class)
+                .flatMap(user -> response.apply(userRepository.findByAccountAndPassword(user.getAccount(), user.getPassword())
+                                .flatMap(findUser -> Mono.just(new Result() {{
+                                    addData("user", findUser);
+                                }}))
+                        )
+                );
     }
 }

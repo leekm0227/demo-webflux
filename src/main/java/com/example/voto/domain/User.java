@@ -1,8 +1,7 @@
 package com.example.voto.domain;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.*;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -18,4 +17,20 @@ public class User extends AbstractDomain {
     private String password;
 
     private String name;
+
+    @Setter(AccessLevel.NONE)
+    private long ticket;
+
+    public User() {
+        ticket = 0;
+    }
+
+    public boolean decreaseTicket() {
+        if (ticket > 0) {
+            ticket--;
+            return true;
+        }
+
+        return false;
+    }
 }
